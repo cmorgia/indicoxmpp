@@ -132,24 +132,26 @@ blueprint.add_url_rule('/login/noui', 'signIn-noui', RHSignInNoUI, methods=('POS
 def decorateMakeLoginProcess(fn):
     def new_funct(*args, **kwargs):
         ret = fn(*args, **kwargs)
-        try:
-            plugin = plugin_engine.get_plugin("indicoxmpp")
-            self = args[0]
-            base_host = plugin.settings.get("base_host")
-            base_port = plugin.settings.get("base_port")
-            jid = self._login+"@"+base_host
-            service = "http://{0}:{1}/http-bind".format(base_host,base_port)
-            c = BOSHClient(service, jid, self._password)
-            c.init_connection()
-            c.request_bosh_session()
-            c.authenticate_xmpp()
-            session["_rid"] = str(c.rid)
-            session["_sid"] = str(c.sid)
-            session["_jid"] = str(c.jid)
-            session["currentUser"]=self._login
-            c.close_connection()
-        except Exception as e:
-            pass
+        if request.method=='POST':
+            try:
+                plugin = plugin_engine.get_plugin("indicoxmpp")
+                self = args[0]
+                base_host = plugin.settings.get("base_host")
+                base_port = plugin.settings.get("base_port")
+                jid = self._login+"@"+base_host
+                service = "http://{0}:{1}/http-bind".format(base_host,base_port)
+                c = BOSHClient(service, jid, self._password)
+                c.init_connection()
+                c.request_bosh_session()
+                if c.authenticate_xmpp():
+                    session["_rid"] = str(c.rid)
+                    session["_sid"] = str(c.sid)
+                    session["_jid"] = str(c.jid)
+                    session["currentUser"]=self._login
+
+                c.close_connection()
+            except Exception as e:
+                pass
         return ret
 
     return new_funct

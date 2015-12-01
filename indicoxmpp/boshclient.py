@@ -316,26 +316,6 @@ class BOSHClient:
                 self.log('Authentication failed!')
                 return  False
 
-            # Ask the server to restart the stream
-            self.log('Asking the server to restart the stream')
-            xml_stanza = self.wrap_stanza_body('', "to='%s' xml:lang='en' xmpp:restart='true' xmlns:xmpp='urn:xmpp:xbosh'" % self.jid.host)
-            data = self.send_request(xml_stanza)
-            self.log('The stream just restarted')
-
-            # Bind the resource
-            self.log('Binding the resource')
-            xml_stanza = self.wrap_stanza_body("<iq id='bind_1' type='set' xmlns='jabber:client'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><resource>%s</resource></bind></iq>" % self.resource)
-            data = self.send_request(xml_stanza)
-            self.log('The resource got bound to: %s' % self.resource)
-
-            # Establish the IM session
-            self.log('Establishing the IM session')
-            xml_stanza = self.wrap_stanza_body("<iq type='set' id='bind_2'><session xmlns='urn:ietf:params:xml:ns:xmpp-session'/></iq>")
-            data = self.send_request(xml_stanza)
-            self.log('IM session established')
-
-            return True
-
         elif 'PLAIN' in self.server_auth:
 
             #
@@ -343,10 +323,39 @@ class BOSHClient:
             #
 
             self.log('Authenticate with PLAIN text')
+            auth_payload = b64encode("\x00{}\x00{}".format(self.jid.user, self.password))
+            xml_stanza = "<body rid='{}' sid='{}' to='{}' xml:lang='en' xmlns='http://jabber.org/protocol/httpbind' ".format(self.rid,self.sid,self.jid.host)
+            xml_stanza += "xmlns:xmpp='urn:xmpp:xbosh'><auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'"
+            xml_stanza += " xmlns:ga='http://www.google.com/talk/protocol/auth' ga:client-uses-full-bind-result='true'>"
+            xml_stanza += "{}</auth></body>".format(auth_payload)
+            data = self.send_request(unicode(xml_stanza))
 
-            # Request authentication fields
-            xml_stanza = self.wrap_stanza_body("<iq type='get' to='%s' id='auth1'><query xmlns='jabber:iq:auth'/></iq>" % self.jid.host)
-            data = self.send_request(xml_stanza)
+            is_success = minidom.parseString(data).documentElement.getElementsByTagName('success')
+            if is_success:
+                self.log('Authentication succeeded!')
+            else:
+                self.log('Authentication failed!')
+                return False
+
+        # Ask the server to restart the stream
+        self.log('Asking the server to restart the stream')
+        xml_stanza = self.wrap_stanza_body('', "to='%s' xml:lang='en' xmpp:restart='true' xmlns:xmpp='urn:xmpp:xbosh'" % self.jid.host)
+        data = self.send_request(xml_stanza)
+        self.log('The stream just restarted')
+
+        # Bind the resource
+        self.log('Binding the resource')
+        xml_stanza = self.wrap_stanza_body("<iq id='bind_1' type='set' xmlns='jabber:client'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><resource>%s</resource></bind></iq>" % self.resource)
+        data = self.send_request(xml_stanza)
+        self.log('The resource got bound to: %s' % self.resource)
+
+        # Establish the IM session
+        self.log('Establishing the IM session')
+        xml_stanza = self.wrap_stanza_body("<iq type='set' id='bind_2'><session xmlns='urn:ietf:params:xml:ns:xmpp-session'/></iq>")
+        data = self.send_request(xml_stanza)
+        self.log('IM session established')
+
+        return True
 
     def disconnect(self):
         """Gracefully terminate the session"""
