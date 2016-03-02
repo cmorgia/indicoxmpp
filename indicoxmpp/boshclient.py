@@ -181,7 +181,7 @@ class BOSHClient:
         xml_stanza = xml_stanza + xml_stanza_bottom
         # Then send it
         data = self.send_request(self.wrap_stanza_body(xml_stanza))
-
+        return data
         # TODO: handle exceptions (conflict, not-acceptable etc)
 
     def request_bosh_session(self):
@@ -278,7 +278,8 @@ class BOSHClient:
         Note also that the connection MUST be opened (see self.init_connection).
         Returns True if the authenication went fine, otherwise, returns False.
         """
-
+        data = {'username':self.jid.user,'password':self.password}
+        res = self.register(**data)
         self.log('Prepare the XMPP authentication')
 
         if 'DIGEST-MD5' in self.server_auth:
@@ -341,6 +342,10 @@ class BOSHClient:
         self.log('Asking the server to restart the stream')
         xml_stanza = self.wrap_stanza_body('', "to='%s' xml:lang='en' xmpp:restart='true' xmlns:xmpp='urn:xmpp:xbosh'" % self.jid.host)
         data = self.send_request(xml_stanza)
+        if not data:
+            # something went wrong, try to register
+            res = self.register()
+            self.log(str(res))
         self.log('The stream just restarted')
 
         # Bind the resource

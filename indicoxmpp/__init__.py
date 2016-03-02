@@ -4,9 +4,9 @@ from MaKaC.authentication import AuthenticatorMgr
 from MaKaC.user import LoginInfo
 from MaKaC.webinterface import urlHandlers
 from MaKaC.webinterface.rh.base import RH
-from MaKaC.webinterface.rh.login import RHSignInBase
+from MaKaC.webinterface.rh.login import RHSignInBase, RHSignOut
 from MaKaC.webinterface.urlHandlers import SecureURLHandler
-from boshclient import BOSHClient
+from boshclient import BOSHClient, JID
 from indico.core.config import Config
 from indico.core.plugins import IndicoPluginBlueprint, IndicoPlugin, plugin_engine
 from flask import session, request
@@ -129,26 +129,30 @@ blueprint.add_url_rule('/exists', 'exists', RHExists,methods=('GET', 'POST'))
 blueprint.add_url_rule('/login/noui', 'signIn-noui', RHSignInNoUI, methods=('POST',))
 
 
+def boshInitConnection(_login,_password):
+    plugin = plugin_engine.get_plugin("indicoxmpp")
+    base_host = plugin.settings.get("base_host")
+    base_port = plugin.settings.get("base_port")
+    jid = _login + "@" + base_host
+    service = "http://{0}:{1}/http-bind".format(base_host, base_port)
+    cli = BOSHClient(service, jid, _password)
+    cli.init_connection()
+    return cli
+
+
 def decorateMakeLoginProcess(fn):
     def new_funct(*args, **kwargs):
         ret = fn(*args, **kwargs)
         if request.method=='POST':
             try:
-                plugin = plugin_engine.get_plugin("indicoxmpp")
                 self = args[0]
-                base_host = plugin.settings.get("base_host")
-                base_port = plugin.settings.get("base_port")
-                jid = self._login+"@"+base_host
-                service = "http://{0}:{1}/http-bind".format(base_host,base_port)
-                c = BOSHClient(service, jid, self._password)
-                c.init_connection()
+                c = boshInitConnection(self._login,self._password)
                 c.request_bosh_session()
                 if c.authenticate_xmpp():
                     session["_rid"] = str(c.rid)
                     session["_sid"] = str(c.sid)
                     session["_jid"] = str(c.jid)
                     session["currentUser"]=self._login
-
                 c.close_connection()
             except Exception as e:
                 pass
@@ -157,3 +161,24 @@ def decorateMakeLoginProcess(fn):
     return new_funct
 
 RHSignInBase._makeLoginProcess = decorateMakeLoginProcess(RHSignInBase._makeLoginProcess)
+
+
+def decorateLogoutProcess(fn):
+    def new_funct(*args, **kwargs):
+        try:
+            self = args[0]
+            c = boshInitConnection(session["currentUser"],'')
+            c.rid = int(session["_rid"])
+            c.sid = unicode(session["_sid"])
+            c.jid = JID(session["_jid"],'web')
+            c.disconnect()
+            c.close_connection()
+
+        except Exception as e:
+            pass
+        ret = fn(*args, **kwargs)
+        return ret
+    return new_funct
+
+
+RHSignOut._process = decorateLogoutProcess(RHSignOut._process)
