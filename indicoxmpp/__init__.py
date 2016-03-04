@@ -153,6 +153,7 @@ def decorateMakeLoginProcess(fn):
                     session["_sid"] = str(c.sid)
                     session["_jid"] = str(c.jid)
                     session["currentUser"]=self._login
+                    session.modified = True
                 c.close_connection()
             except Exception as e:
                 pass
