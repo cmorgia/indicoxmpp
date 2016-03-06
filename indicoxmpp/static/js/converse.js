@@ -9,7 +9,7 @@ require(['converse'], function (converse) {
                 event.preventDefault();
             });
             var parser = document.createElement('a');
-            parser.href = baseUrl;
+            parser.href = Indico.Urls.Base;
             var baseHost = parser.hostname;
 
             var xmppPort = 5280;
@@ -18,15 +18,16 @@ require(['converse'], function (converse) {
                 bosh_service_url: 'http://'+baseHost+':'+xmppPort+'/http-bind', // Please use this connection manager only for testing purposes
                 i18n: locales['en'], // Refer to ./locale/locales.js to see which locales are supported
                 keepalive: true,
-                message_carbons: true,
-                play_sounds: true,
+                message_carbons: false,
+                play_sounds: false,
+                debug: true,
                 roster_groups: true,
                 show_controlbox_by_default: true,
                 xhr_user_search: false,
                 allow_registration: true,
                 prebind: true,
-                prebind_url: '/indico/xmpp/prebind',
-                jid: "fake@" + baseHost
+                prebind_url: Indico.Urls.Base+'/xmpp/prebind',
+                jid: currentUser+"@" + baseHost
             });
         }
     });
